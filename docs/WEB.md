@@ -1,46 +1,50 @@
-## RGSX Web API (headless)
+## Upstream RGSX Web Interface
 
-This replaces the Pygame UI with a small FastAPI service that exposes browsing and download endpoints. It reuses the existing download logic and writes files into `/roms/<system>` (mount this to your NAS).
+The container no longer ships a custom FastAPI wrapper. Instead it launches the official `rgsx_web.py` server bundled with the upstream project. That keeps behaviour in sync with the desktop release (history actions, support ZIP generation, controller updates, etc.).
 
-### Endpoints
-- `GET /api/status` – basic health and paths.
-- `GET /api/platforms` – list systems (id, name, folder, image).
-- `GET /api/platforms/{platform_id}/games` – list games for a platform (name, url, size). Requires data bootstrap.
-- `GET /api/history` – download history. Optional `status` filter (`completed|downloading|extracting|error|canceled`) and `limit`.
-- `POST /api/download` – body: `{ platform, game_name, url, is_archive? }` – starts a download; returns `{ task_id }`.
-- `POST /api/cancel` – body: `{ task_id? , url? }` – requests cancellation by id and/or url.
-- `GET /api/progress?url=...` – normalized object for this URL with `status`, `percent`, `speed`, sizes, message. Without `url`, returns recent entries.
-- `GET /api/search?q=...&platform_id?=...` – simple server-side search; optional `limit`.
-- `GET /web` – serves a minimal static test UI (drop your built frontend into `rgsx_web/static` to override).
+### Main Endpoints
 
-### Data bootstrap
-On first start, if `sources.json` or the `games` directory is missing, the service downloads `rgsx-data.zip` (same source as the GUI) and extracts it into `/saves/ports/rgsx`.
+All routes live on the same port (default `8080`, override with `WEB_PORT`). The HTML UI hits these JSON endpoints under the hood:
 
-### Run with Docker
-Use `docker-compose.web.example.yml`:
+- `GET /` – Single-page interface with tabs for platforms, downloads, history, and settings
+- `GET /api/platforms` – List available systems with localized names
+- `GET /api/games?platform=<id>` – Games for a platform (name, size, URL)
+- `POST /api/download` – Start a download using the same logic as the GUI build
+- `POST /api/cancel` – Cancel a download in progress
+- `GET /api/progress` – Snapshot of active downloads
+- `GET /api/history` – Completed/failed downloads (newest first)
+- `POST /api/update-cache` – Clear cached platform/game metadata so it is refreshed on next use
+- `POST /api/support` – Generate a ZIP with logs/settings for support requests
+- `GET /assets/...` – Static files served directly from `/saves/ports/rgsx`
 
-```env
-NAS_ROMS=/mnt/nas/roms
-RGSX_SAVES=/mnt/nas/rgsx-saves
-```
+### Data Bootstrap
+
+On first launch the server mirrors the GUI flow:
+- Ensures `/saves/ports/rgsx` exists
+- Downloads the latest data pack if `sources.json` or cached game files are missing
+- Creates empty API key files (1fichier, AllDebrid, RealDebrid) so you can fill them in later
+
+Mount the `/saves` volume to persist this cache between container rebuilds.
+
+### Running with Docker Compose
 
 ```bash
+# adapt the paths to your NAS/host
+NAS_ROMS=/mnt/nas/roms \
+RGSX_SAVES=/mnt/nas/rgsx-saves \
 docker compose -f docker-compose.web.example.yml up -d --build
 ```
 
-Then open `http://<host>:8080/docs` for interactive API docs.
+Then open `http://<host>:8080` in your browser. All translations and UI enhancements added upstream appear automatically after the next rebuild.
 
-### Notes
-- 1fichier links require a premium API key in `/saves/ports/rgsx/1FichierAPI.txt`.
-- The API’s games endpoint reads from `/saves/ports/rgsx/games/<platform>.json`.
-- This is a minimal API. If you want a full web UI, add a frontend that hits these endpoints (React/Vue/Svelte or simple HTML/JS) and serve it via the same FastAPI app.
-- For live progress, use `ws://<host>/ws/progress?url=<encoded_url>` (or `wss://` when behind HTTPS).
+### Authentication & Rate Limiting
 
-### Auth and rate limiting (optional)
-- Set `RGSX_API_KEY` to require `X-Api-Key` (or `?api_key=`) on all API routes and WebSocket.
-- Set `RGSX_RATE_LIMIT` like `60/min` to rate limit per client IP. Defaults to off.
+`rgsx_web.py` does not currently implement request authentication or rate limiting. If you need those features, place the container behind a reverse proxy (Traefik, Nginx, Caddy) that adds auth headers or IP throttling.
 
-### Serving a React build
-- Build your React app and copy the production build into `rgsx_web/static` (e.g., `cp -r dist/* rgsx_web/static/`).
-- Access it at `http://<host>:8080/web`.
-- For client-side routing, prefer mounting at `/web` root and linking within that base.
+### Customising Behaviour
+
+If you want to patch the official server, mount your local `ports/RGSX` directory over `/opt/RGSX` using the dev compose file, restart the container, and iterate on the Python sources locally.
+
+### GUI Fallback
+
+Set `RGSX_MODE=gui` to restore the SDL interface. The web server is disabled in that mode and the entrypoint launches `python -m RGSX` under Xvfb.

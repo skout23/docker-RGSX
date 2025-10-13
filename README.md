@@ -1,6 +1,6 @@
 # 🎮 Retro Game Sets Xtra (RGSX)
 
-This is a fork to allow RGSX to run on nas in a container and download via web ui. if you dont need this and want to use via pygame ui as it was intended use the orginal project. Go to docker section of readme for more details.
+This repository keeps a Docker-friendly wrapper around RGSX so it can run on NAS or server hardware with the official web interface. The container now pulls the upstream project during build, so you benefit from the maintainer’s updates without manually merging hundreds of commits. Head to the Docker section for usage details.
 
 ## SUPPORT / HELP : https://discord.gg/Vph9jwg3VV
 ## LISEZ-MOI EN FRANCAIS : https://github.com/RetroGameSets/RGSX/blob/main/README_FR.md
@@ -114,8 +114,8 @@ The following environment variables can be used to configure the Docker containe
 | `RGSX_MODE`           | Set to `web` to enable the web UI         | `web`   |
 | `WEB_PORT`            | Port for the web UI                       | `8080`  |
 | `RGSX_DISABLE_UPDATER`| Disable automatic updates                 | `1`     |
-| `PUID`                | User ID to run the application as         | `1000`  |
-| `PGID`                | Group ID to run the application as        | `1000`  |
+
+To run the container as a specific user/group, set the `user:` field in your compose file.
 
 ---
 

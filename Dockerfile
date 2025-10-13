@@ -2,19 +2,21 @@ FROM python:3.11-slim-bookworm
 
 # Build arg to optionally include GUI deps (pygame). Default off for web-only images
 ARG INCLUDE_PYGAME=0
+ARG RGSX_REPO=https://github.com/RetroGameSets/RGSX.git
+ARG RGSX_REF=main
 
 # Install runtime deps: minimal for web mode; GUI deps added conditionally
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       iputils-ping curl \
+       git iputils-ping curl \
        unrar-free \
        # GUI/VNC tools only when running GUI mode; harmless to have present, but skip heavy SDL libs here\
        xvfb x11vnc fluxbox websockify novnc \
     && rm -rf /var/lib/apt/lists/*
 
-# Python requirements (web): avoid uvicorn[standard] to skip uvloop/httptools builds on arm/v7
+# Python requirements shared by both modes
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir requests fastapi uvicorn websockets
+    && pip install --no-cache-dir requests
 
 # Optional: install pygame and SDL libs for GUI builds
 RUN if [ "$INCLUDE_PYGAME" = "1" ]; then \
@@ -32,11 +34,10 @@ RUN if [ "$INCLUDE_PYGAME" = "1" ]; then \
 WORKDIR /opt
 RUN mkdir -p /roms /saves
 
-# Copy RGSX application (package directory) into /opt/RGSX
-COPY ports/RGSX /opt/RGSX
-
-# Copy Web API and static UI
-COPY rgsx_web /opt/rgsx_web
+# Fetch RGSX sources from upstream and stage the application package
+RUN git clone --depth 1 --branch "${RGSX_REF}" "${RGSX_REPO}" /tmp/RGSX \
+    && cp -a /tmp/RGSX/ports/RGSX /opt/RGSX \
+    && rm -rf /tmp/RGSX
 
 # Environment for headless X and SDL
 ENV DISPLAY=:0 \

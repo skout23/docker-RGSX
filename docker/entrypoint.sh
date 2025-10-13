@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Mode: gui (pygame over VNC) or web (FastAPI)
+# Mode: gui (pygame over VNC) or web (upstream HTTP server)
 RGSX_MODE=${RGSX_MODE:-web}
 WEB_PORT=${WEB_PORT:-8080}
 
@@ -20,9 +20,9 @@ if [ ! -z "${ONEFICHIER_API_KEY:-}" ]; then
 fi
 
 if [ "$RGSX_MODE" = "web" ]; then
-  echo "[entrypoint] Launching RGSX Web API on 0.0.0.0:${WEB_PORT}"
-  cd /opt
-  exec uvicorn rgsx_web.app:app --host 0.0.0.0 --port ${WEB_PORT}
+  echo "[entrypoint] Launching RGSX upstream web UI on 0.0.0.0:${WEB_PORT}"
+  cd /opt/RGSX
+  exec python rgsx_web.py --host 0.0.0.0 --port ${WEB_PORT}
 else
   # GUI mode (default)
   # Start a virtual X display

@@ -12,5 +12,4 @@ services:
       - ${NAS_ROMS}:/roms
       - ${RGSX_SAVES}:/saves
     ports:
-      - "8080:8080"  # FastAPI
-
+      - "8080:8080"  # Upstream Web UI

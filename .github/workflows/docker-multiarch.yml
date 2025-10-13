@@ -24,41 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Detect and build Web UI (optional)
-        id: web
-        run: |
-          set -e
-          if [ -f "rgsx_web/ui/package.json" ]; then
-            echo "ui=1" >> $GITHUB_OUTPUT
-          else
-            echo "ui=0" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set up Node.js
-        if: steps.web.outputs.ui == '1'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: rgsx_web/ui/package-lock.json
-
-      - name: Build frontend
-        if: steps.web.outputs.ui == '1'
-        working-directory: rgsx_web/ui
-        run: |
-          npm ci
-          npm run build
-          # Copy build output into static dir expected by the image
-          mkdir -p ../static
-          if [ -d "dist" ]; then
-            rsync -a --delete dist/ ../static/
-          elif [ -d "build" ]; then
-            rsync -a --delete build/ ../static/
-          else
-            echo "No dist/ or build/ output found after npm run build" >&2
-            exit 1
-          fi
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

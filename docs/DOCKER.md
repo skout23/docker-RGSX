@@ -1,81 +1,71 @@
 ## RGSX in Docker (Pi + NAS)
 
-By default, the container runs the Web API + minimal UI at `/web` so you can use it from any browser. Downloads are written directly to your NAS share. A GUI (VNC) variant is also provided.
+The container now runs the upstream `rgsx_web.py` server by default, giving you the same web interface that ships with RetroGameSets/RGSX. Downloads land in `/roms/<system>`, while settings and history persist under `/saves/ports/rgsx`.
 
 ### What you get
-- Headless RGSX (Pygame) accessible via VNC (port 5900) and browser (http://host:6080)
-- Writes ROMs to `/roms` (mount this to your NAS path)
-- Persists settings/history under `/saves/ports/rgsx`
-- Multi-arch (works on Raspberry Pi, x86_64, etc.)
+- Official RGSX web UI on `http://<host>:8080`
+- Optional SDL/VNC mode for the legacy Pygame experience (`RGSX_MODE=gui`)
+- Multi-arch image (amd64, arm64, armv7) ready for Raspberry Pi or NAS boxes
+- First-run data bootstrap identical to the upstream project
 
 ### Repo layout
-- `Dockerfile`: multi-arch headless image
-- `docker/entrypoint.sh`: starts Xvfb, VNC/noVNC, and RGSX
-- `docker-compose.example.yml`: example Compose service
+- `Dockerfile` – clones upstream RGSX and stages it inside the image
+- `docker/entrypoint.sh` – toggles between web and GUI launches
+- `docker-compose.yml` – basic service definition with volume mounts
+- `docker-compose.web.example.yml` – example for NAS paths with environment variables
+- `docker-compose.dev.yml` – development setup with local volume mounts
 
-### Quick start (Web mode, default)
-1) Build or pull the image
-
-   - Build locally:
-     ```bash
-     docker compose -f docker-compose.example.yml build
-     ```
-
-2) Set environment variables (NAS paths)
-
-   - For example, create a `.env` file alongside the compose:
-     ```env
-     NAS_ROMS=/mnt/nas/roms
-     RGSX_SAVES=/mnt/nas/rgsx-saves
-     WEB_PORT=8080
-     ```
-   - Ensure these paths exist and are writable by the container user. You can also set a `user:` in Compose to match your NAS permissions.
-
-3) Launch
+### Quick start (Web mode)
+1. Build or pull the image
    ```bash
-   docker compose -f docker-compose.example.yml up -d
+   docker compose build
    ```
 
-4) Access the UI
-   - API docs: `http://<host>:${WEB_PORT}/docs`
-   - Minimal UI: `http://<host>:${WEB_PORT}/web`
+2. Edit paths in `docker-compose.yml` or use environment variables
+   ```yaml
+   volumes:
+     - /path/to/your/roms:/roms
+     - /path/to/your/saves:/saves
+   ```
 
-5) First run
-   - RGSX downloads its data on first launch. Settings and history are stored under `/saves/ports/rgsx` in your mapped `RGSX_SAVES` path.
-   - If you have a 1Fichier API key, put it in `/saves/ports/rgsx/1FichierAPI.txt`.
+3. Launch
+   ```bash
+   docker compose up -d
+   ```
 
-### Volumes mapping
-- `/roms` → NAS folder that you want populated with per-system subfolders (e.g., `/mnt/nas/roms`).
-- `/saves` → persistent storage for RGSX settings and caches (e.g., `/mnt/nas/rgsx-saves`). RGSX stores its files in `/saves/ports/rgsx`.
+4. Browse to `http://<host>:8080`
+   - Platforms, downloads, history, and settings mirror the desktop build
+   - Support ZIPs download directly in your browser
 
-### SteamOS / Bazzite / EmuDeck / Handhelds
-- Point EmulationStation/EmuDeck to the same NAS `roms` share, or mount it locally.
-- RGSX writes into per-system subfolders under `/roms` (e.g., `/roms/snes`, `/roms/psx`, etc.).
-- On SteamOS/Bazzite, mount your NAS under your EmuDeck ROMs path or add a second ROMs directory pointing to the share.
-- On handheld Linux devices (ES frontends), mount the same share and refresh the gamelist.
-- On Android, access the NAS via SMB apps or mount solutions and copy desired titles over.
+5. First run notes
+   - The server downloads the dataset automatically if missing
+   - API key placeholders are created in `/saves/ports/rgsx/*.txt`
+
+### Volume mappings
+- `/roms` → Where new ROMs are written (one subfolder per system)
+- `/saves` → Persistent config/cache (`/saves/ports/rgsx` inside)
 
 ### GUI (VNC) variant
-- Use `docker-compose.gui.example.yml` to run the original Pygame UI over VNC/noVNC.
-- Ports:
-  - 5900 (VNC), 6080 (noVNC in browser)
-- Edit `DISPLAY_WIDTH/HEIGHT` as you like.
+- Switch `RGSX_MODE=gui`
+- Ports: `5900` (VNC) and `6080` (noVNC via browser)
+- Adjust `DISPLAY_WIDTH`, `DISPLAY_HEIGHT`, `DISPLAY_DEPTH` as desired
 
-### Raspberry Pi notes
-- The image is headless and doesn’t require an attached display. Control it via browser/VNC.
-- If your NAS requires specific permissions, run the container with a matching UID/GID:
-  ```yaml
-  user: "1000:1000"
-  ```
-- If you see audio warnings, they are harmless (audio is disabled via `SDL_AUDIODRIVER=dummy`).
+### Raspberry Pi / handheld tips
+- Mount your NAS share to `/roms` and `/saves`
+- Refresh EmulationStation/EmuDeck gamelists after downloads complete
+- When running on handheld Linux builds, keep the container headless and use the web UI from another device
 
 ### Troubleshooting
-- Black screen in browser/VNC: ensure `SDL_VIDEODRIVER=x11` is set (default in the Dockerfile), and the container has enough RAM.
-- No downloads or network errors: ensure the container has internet access and your firewall doesn’t block outgoing traffic. The app’s internet self-test uses `ping` and HTTP.
-- RAR extraction fails: `unrar-free` is installed. Some archives may require the non-free `unrar` package; if needed, install it in the image or adjust your base OS sources.
-- Update prompts: RGSX can self-update its data (stored in `/saves`). Restart the app if requested.
+- **Blank page:** check container logs (`docker logs rgsx`) for bootstrap errors
+- **No platforms:** clear `/saves/ports/rgsx/sources.json` and refresh via Settings in the UI
+- **1fichier failures:** verify `/saves/ports/rgsx/1fichierAPI.txt` contains a valid key or set `ONEFICHIER_API_KEY`
+- **Permission issues:** set `user: "1000:1000"` (or similar) in compose to match your NAS permissions
 
-### Updater controls (recommended for Docker)
-- `RGSX_DISABLE_UPDATER=1`: disables the in-app code updater (OTA). Use image rebuilds to update instead. Default enabled in `docker-compose.example.yml`.
-- `RGSX_DISABLE_DATA_UPDATE=1`: disables automatic data bootstrap/update (`rgsx-data.zip`). Leave off if you want automatic dataset updates; turn on to pin dataset.
- - `WEB_PORT`: sets the HTTP listen port inside the container (default 8080). The compose example maps host:port to the same value for simplicity.
+### Updater controls
+- `RGSX_DISABLE_UPDATER=1` keeps the in-app OTA updater disabled. Rebuild the image instead of allowing code writes inside the container.
+- `WEB_PORT` overrides the listen port (container and host mapping). Defaults to `8080` if unset.
+
+### Staying current
+- Rebuild with `docker compose build --no-cache` to grab the latest upstream commit
+- Pin a specific release by passing `--build-arg RGSX_REF=v2.2.4.2`
+- For experiments, mount a local `ports/RGSX` directory over `/opt/RGSX` using `docker-compose.dev.yml`

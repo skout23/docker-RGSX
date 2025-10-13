@@ -9,22 +9,16 @@ services:
       - TZ=UTC
       - RGSX_MODE=web
       - WEB_PORT=8080
-      # Optional: Enable API authentication in dev
-      # - RGSX_API_KEY=your-dev-key-here
-      # Optional: Rate limiting
-      # - RGSX_RATE_LIMIT=100/min
-      # Enable automatic data updates (platforms and game lists)
-      - RGSX_DISABLE_DATA_UPDATE=false
+      # Optional: Pre-seed 1fichier API key
+      # - ONEFICHIER_API_KEY=your-api-key-here
     volumes:
       # Mount local directories for development
       - ./roms:/roms
       - ./saves:/saves
-      # Hot reload for web UI development
-      - ./rgsx_web/static:/opt/rgsx_web/static
-      # Optional: Mount source code for Python development
+      # Optional: Mount upstream sources for hacking
       # - ./ports/RGSX:/opt/RGSX
     ports:
-      - "8080:8080"  # FastAPI Web UI
+      - "8080:8080"  # Upstream Web UI (HTTPServer)
     networks:
       - rgsx-dev
 

@@ -8,7 +8,7 @@ What it does
 - Builds for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`.
 - Pushes to GitHub Container Registry (GHCR) by default as `ghcr.io/<owner>/<repo>:<tag>` and `:latest`.
 - Optionally pushes to Docker Hub if credentials are provided.
-- If a frontend exists at `rgsx_web/ui` with a `package.json`, the workflow builds it (`npm ci && npm run build`) and copies the output (`dist/` or `build/`) into `rgsx_web/static/` before building the image.
+- Clones the upstream RGSX repository during the image build (matching the Dockerfile behaviour locally) so you inherit the official web UI.
 
 Trigger
 - Pushing a tag that matches `v*` or `V*`.
@@ -45,4 +45,4 @@ Manual release (single tag + release)
 Notes
 - The same image supports both GUI and Web modes via `RGSX_MODE` env (`gui` or `web`).
 - Consider pinning exact tags (e.g., `v1.2.3`) in production instead of `latest`.
-- If you maintain a React/Vue UI under `rgsx_web/ui`, ensure `npm run build` outputs to `dist` or `build`. The workflow syncs that to `rgsx_web/static/` which is what the FastAPI app serves at `/web`.
+- The workflow honours the `RGSX_REF` build argument; set it at dispatch time if you want to pin a specific upstream release.

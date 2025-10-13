@@ -20,6 +20,6 @@ services:
       - /home/marc/roms:/roms
       - /home/marc/saves:/saves
     ports:
-      - "${WEB_PORT:-8080}:${WEB_PORT:-8080}"   # Web UI/API
+      - "${WEB_PORT:-8080}:${WEB_PORT:-8080}"   # Upstream Web UI/API
     # Optionally enforce user mapping; uncomment and set PUID/PGID
     # user: "${PUID:-1000}:${PGID:-1000}"
