@@ -70,14 +70,33 @@ You will find RGSX in the "PORTS" system or "Homebrew and ports" and in `/roms/p
 
 ## 🐳 Docker Support
 
-This project includes support for running RGSX in a Docker container.
+This project includes support for running RGSX in a Docker container with the official web interface.
 
 <img width="1566" height="813" alt="Screenshot_20250830_233936" src="https://github.com/user-attachments/assets/1887c02b-5b1e-40d0-b299-633967ed21ef" />
 
+### Quick Start (Prebuilt Image)
 
-### Building the Docker Image
+Pull the latest image from GitHub Container Registry:
 
-To build the Docker image, run the following command in the root of the project:
+```bash
+docker pull ghcr.io/brownster/rgsx-docker:latest
+```
+
+Run the container:
+
+```bash
+docker run -d --name rgsx \
+  -p 8080:8080 \
+  -v /path/to/your/roms:/roms \
+  -v /path/to/your/saves:/saves \
+  ghcr.io/brownster/rgsx-docker:latest
+```
+
+Access the web UI at `http://localhost:8080`
+
+### Building the Docker Image (Optional)
+
+If you prefer to build from source:
 
 ```bash
 docker build -t rgsx .
@@ -104,6 +123,11 @@ The easiest way to run the application with Docker is to use Docker Compose. A `
 
 The web UI will be available at `http://<your-docker-host>:8080`.
 
+### Available Tags
+
+- `ghcr.io/brownster/rgsx-docker:latest` - Latest stable release
+- `ghcr.io/brownster/rgsx-docker:v1.0.0` - Specific version (recommended for production)
+
 ### Environment Variables
 
 The following environment variables can be used to configure the Docker container:
@@ -113,6 +137,7 @@ The following environment variables can be used to configure the Docker containe
 | `TZ`                  | Timezone for the container                | `UTC`   |
 | `RGSX_MODE`           | Set to `web` to enable the web UI         | `web`   |
 | `WEB_PORT`            | Port for the web UI                       | `8080`  |
+| `ONEFICHIER_API_KEY`  | Pre-seed 1fichier API key                 | -       |
 | `RGSX_DISABLE_UPDATER`| Disable automatic updates                 | `1`     |
 
 To run the container as a specific user/group, set the `user:` field in your compose file.

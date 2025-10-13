@@ -9,7 +9,23 @@ This image wraps the upstream [RetroGameSets/RGSX](https://github.com/RetroGameS
 - **Easy updates** – rebuild the image to pick up new upstream commits or pin a specific tag/commit with build args
 - **1fichier helpers** – auto-seed the API key via env vars, matching the upstream behaviour
 
-## Quick Start
+## Quick Start (Prebuilt Image)
+
+Pull and run the latest image:
+
+```bash
+docker pull ghcr.io/brownster/rgsx-docker:latest
+
+docker run -d --name rgsx \
+  -p 8080:8080 \
+  -v /path/to/your/roms:/roms \
+  -v /path/to/your/saves:/saves \
+  ghcr.io/brownster/rgsx-docker:latest
+```
+
+Open `http://localhost:8080` to use the official RGSX web interface.
+
+## Quick Start (Docker Compose)
 
 1. Copy the environment template and edit paths:
    ```bash
