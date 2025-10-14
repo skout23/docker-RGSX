@@ -143,6 +143,7 @@ jobs:
           VERSION="${{ steps.vars.outputs.version }}"
           UPSTREAM_SHA="${{ needs.check-upstream.outputs.upstream_sha }}"
           SHORT_SHA="${{ steps.vars.outputs.short_sha }}"
+          REPO="${{ github.repository }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -153,9 +154,9 @@ Synced with upstream RGSX commit ${SHORT_SHA}
 upstream-sha: ${UPSTREAM_SHA}
 
 Docker images:
-- ghcr.io/${{ github.repository }}:${VERSION}
-- ghcr.io/${{ github.repository }}:${SHORT_SHA}
-- ghcr.io/${{ github.repository }}:latest"
+- ghcr.io/${REPO}:${VERSION}
+- ghcr.io/${REPO}:${SHORT_SHA}
+- ghcr.io/${REPO}:latest"
 
           git push origin "v${VERSION}"
 
