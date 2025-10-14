@@ -148,16 +148,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git tag -a "v${VERSION}" -m "Automated release v${VERSION}
+          # Create tag message in a file to avoid YAML parsing issues
+          cat > /tmp/tag_message.txt <<EOF
+          Automated release v${VERSION}
 
-Synced with upstream RGSX commit ${SHORT_SHA}
-upstream-sha: ${UPSTREAM_SHA}
+          Synced with upstream RGSX commit ${SHORT_SHA}
+          upstream-sha: ${UPSTREAM_SHA}
 
-Docker images:
-- ghcr.io/${REPO}:${VERSION}
-- ghcr.io/${REPO}:${SHORT_SHA}
-- ghcr.io/${REPO}:latest"
+          Docker images:
+          - ghcr.io/${REPO}:${VERSION}
+          - ghcr.io/${REPO}:${SHORT_SHA}
+          - ghcr.io/${REPO}:latest
+          EOF
 
+          git tag -a "v${VERSION}" -F /tmp/tag_message.txt
           git push origin "v${VERSION}"
 
       - name: Create GitHub Release
