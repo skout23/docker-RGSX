@@ -1,0 +1,193 @@
+name: Sync with Upstream RGSX
+
+on:
+  schedule:
+    # Check for upstream changes every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+  DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || secrets.DOCKERHUB_IMAGE }}
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    outputs:
+      has_new_commits: ${{ steps.check.outputs.has_new_commits }}
+      upstream_sha: ${{ steps.check.outputs.upstream_sha }}
+      new_version: ${{ steps.check.outputs.new_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check upstream for new commits
+        id: check
+        run: |
+          set -e
+
+          # Fetch latest upstream commit SHA
+          UPSTREAM_SHA=$(curl -s https://api.github.com/repos/RetroGameSets/RGSX/commits/main | jq -r '.sha')
+          echo "Upstream SHA: $UPSTREAM_SHA"
+          echo "upstream_sha=$UPSTREAM_SHA" >> $GITHUB_OUTPUT
+
+          # Check if we've already built this commit
+          LAST_BUILT_SHA=$(git log --all --grep="upstream-sha: $UPSTREAM_SHA" --format="%H" | head -1)
+
+          if [ -z "$LAST_BUILT_SHA" ]; then
+            echo "has_new_commits=true" >> $GITHUB_OUTPUT
+            echo "New upstream commits detected!"
+
+            # Generate new version based on date (YYYY.MM.DD.N format)
+            DATE_VERSION=$(date +%Y.%m.%d)
+
+            # Count how many releases we've made today
+            TODAYS_COUNT=$(git tag -l "${DATE_VERSION}.*" 2>/dev/null | wc -l || echo 0)
+            NEXT_COUNT=$((TODAYS_COUNT + 1))
+
+            NEW_VERSION="${DATE_VERSION}.${NEXT_COUNT}"
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "Will create version: $NEW_VERSION"
+          else
+            echo "has_new_commits=false" >> $GITHUB_OUTPUT
+            echo "Already built upstream commit $UPSTREAM_SHA"
+          fi
+
+  build-and-release:
+    needs: check-upstream
+    if: needs.check-upstream.outputs.has_new_commits == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub (optional)
+        if: ${{ env.DOCKERHUB_IMAGE != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive tags
+        id: vars
+        run: |
+          VERSION="${{ needs.check-upstream.outputs.new_version }}"
+          UPSTREAM_SHA="${{ needs.check-upstream.outputs.upstream_sha }}"
+          SHORT_SHA="${UPSTREAM_SHA:0:7}"
+
+          # Convert to lowercase
+          GHCR_IMAGE_LOWER=$(echo "${GHCR_IMAGE}" | tr '[:upper:]' '[:lower:]')
+          DOCKERHUB_IMAGE_LOWER=$(echo "${DOCKERHUB_IMAGE}" | tr '[:upper:]' '[:lower:]')
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "ghcr_tags=${GHCR_IMAGE_LOWER}:${VERSION},${GHCR_IMAGE_LOWER}:latest,${GHCR_IMAGE_LOWER}:${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+          if [ -n "${DOCKERHUB_IMAGE}" ]; then
+            echo "dh_tags=${DOCKERHUB_IMAGE_LOWER}:${VERSION},${DOCKERHUB_IMAGE_LOWER}:latest,${DOCKERHUB_IMAGE_LOWER}:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push (GHCR)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          provenance: false
+          tags: ${{ steps.vars.outputs.ghcr_tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.vars.outputs.version }}
+            rgsx.upstream.sha=${{ needs.check-upstream.outputs.upstream_sha }}
+
+      - name: Build and push (Docker Hub)
+        if: ${{ steps.vars.outputs.dh_tags != '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          provenance: false
+          tags: ${{ steps.vars.outputs.dh_tags }}
+          cache-from: type=gha
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.vars.outputs.version }}
+            rgsx.upstream.sha=${{ needs.check-upstream.outputs.upstream_sha }}
+
+      - name: Create Git tag
+        run: |
+          VERSION="${{ steps.vars.outputs.version }}"
+          UPSTREAM_SHA="${{ needs.check-upstream.outputs.upstream_sha }}"
+          SHORT_SHA="${{ steps.vars.outputs.short_sha }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "v${VERSION}" -m "Automated release v${VERSION}
+
+Synced with upstream RGSX commit ${SHORT_SHA}
+upstream-sha: ${UPSTREAM_SHA}
+
+Docker images:
+- ghcr.io/${{ github.repository }}:${VERSION}
+- ghcr.io/${{ github.repository }}:${SHORT_SHA}
+- ghcr.io/${{ github.repository }}:latest"
+
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.vars.outputs.version }}
+          name: Release v${{ steps.vars.outputs.version }}
+          body: |
+            ## Automated Release
+
+            This release automatically synced with upstream RGSX repository.
+
+            **Upstream Commit:** RetroGameSets/RGSX@${{ steps.vars.outputs.short_sha }}
+
+            ### Docker Images
+
+            ```bash
+            # Pull by version
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.version }}
+
+            # Pull by upstream commit
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.short_sha }}
+
+            # Pull latest
+            docker pull ghcr.io/${{ github.repository }}:latest
+            ```
+
+            ### What's New
+
+            This release includes all changes from the [upstream RGSX repository](https://github.com/RetroGameSets/RGSX/commits/main) up to commit [${{ steps.vars.outputs.short_sha }}](https://github.com/RetroGameSets/RGSX/commit/${{ needs.check-upstream.outputs.upstream_sha }}).
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
