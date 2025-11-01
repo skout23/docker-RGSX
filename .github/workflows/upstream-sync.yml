@@ -47,9 +47,28 @@ jobs:
             # Generate new version based on date (YYYY.MM.DD.N format)
             DATE_VERSION=$(date +%Y.%m.%d)
 
-            # Count how many releases we've made today
-            TODAYS_COUNT=$(git tag -l "${DATE_VERSION}.*" 2>/dev/null | wc -l || echo 0)
-            NEXT_COUNT=$((TODAYS_COUNT + 1))
+            # Determine the next sequence number for today's date.
+            # Tags are created in the form vYYYY.MM.DD.N so we look for matching
+            # v-prefixed tags that already exist and increment the highest suffix.
+            DATE_VERSION_REGEX=${DATE_VERSION//./\\.}
+            EXISTING_TAGS=$(git tag -l "v${DATE_VERSION}.*" 2>/dev/null || true)
+
+            if [ -n "$EXISTING_TAGS" ]; then
+              MAX_COUNT=$(printf '%s\n' "$EXISTING_TAGS" \
+                | sed -E "s/^v${DATE_VERSION_REGEX}\.([0-9]+)$/\\1/" \
+                | grep -E '^[0-9]+$' \
+                | sort -n \
+                | tail -1)
+
+              if [ -n "$MAX_COUNT" ]; then
+                NEXT_COUNT=$((MAX_COUNT + 1))
+              else
+                TOTAL_TAGS=$(printf '%s\n' "$EXISTING_TAGS" | wc -l | tr -d ' ')
+                NEXT_COUNT=$((TOTAL_TAGS + 1))
+              fi
+            else
+              NEXT_COUNT=1
+            fi
 
             NEW_VERSION="${DATE_VERSION}.${NEXT_COUNT}"
             echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
