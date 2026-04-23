@@ -67,15 +67,17 @@ Mounts required in every compose variant:
 
 ## Building Your Own Image
 
-The Dockerfile now accepts two build arguments:
+The Dockerfile now accepts three build arguments:
 
 ```bash
 docker build \
+  --build-arg INCLUDE_PYGAME=1 \
   --build-arg RGSX_REF=v2.2.4.2 \
   --build-arg RGSX_REPO=https://github.com/RetroGameSets/RGSX.git \
   -t my-rgsx .
 ```
 
+- `INCLUDE_PYGAME` defaults to `1` because the upstream web server currently imports `pygame` during startup
 - `RGSX_REF` can be a tag, branch, or commit SHA
 - The build needs outbound network access to clone the repository
 

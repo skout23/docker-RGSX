@@ -119,6 +119,7 @@ jobs:
 
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "ghcr_image=${GHCR_IMAGE_LOWER}" >> $GITHUB_OUTPUT
           echo "ghcr_tags=${GHCR_IMAGE_LOWER}:${VERSION},${GHCR_IMAGE_LOWER}:latest,${GHCR_IMAGE_LOWER}:${SHORT_SHA}" >> $GITHUB_OUTPUT
 
           if [ -n "${DOCKERHUB_IMAGE}" ]; then
@@ -162,7 +163,7 @@ jobs:
           VERSION="${{ steps.vars.outputs.version }}"
           UPSTREAM_SHA="${{ needs.check-upstream.outputs.upstream_sha }}"
           SHORT_SHA="${{ steps.vars.outputs.short_sha }}"
-          REPO="${{ github.repository }}"
+          GHCR_IMAGE="${{ steps.vars.outputs.ghcr_image }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -175,9 +176,9 @@ jobs:
           upstream-sha: ${UPSTREAM_SHA}
 
           Docker images:
-          - ghcr.io/${REPO}:${VERSION}
-          - ghcr.io/${REPO}:${SHORT_SHA}
-          - ghcr.io/${REPO}:latest
+          - ${GHCR_IMAGE}:${VERSION}
+          - ${GHCR_IMAGE}:${SHORT_SHA}
+          - ${GHCR_IMAGE}:latest
           EOF
 
           git tag -a "v${VERSION}" -F /tmp/tag_message.txt
@@ -199,13 +200,13 @@ jobs:
 
             ```bash
             # Pull by version
-            docker pull ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.version }}
+            docker pull ${{ steps.vars.outputs.ghcr_image }}:${{ steps.vars.outputs.version }}
 
             # Pull by upstream commit
-            docker pull ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.short_sha }}
+            docker pull ${{ steps.vars.outputs.ghcr_image }}:${{ steps.vars.outputs.short_sha }}
 
             # Pull latest
-            docker pull ghcr.io/${{ github.repository }}:latest
+            docker pull ${{ steps.vars.outputs.ghcr_image }}:latest
             ```
 
             ### What's New

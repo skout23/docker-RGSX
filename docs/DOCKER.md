@@ -57,6 +57,7 @@ The container now runs the upstream `rgsx_web.py` server by default, giving you 
 
 ### Troubleshooting
 - **Blank page:** check container logs (`docker logs rgsx`) for bootstrap errors
+- **`ModuleNotFoundError: No module named 'pygame'`:** rebuild the image from this repo so the container picks up the bundled `pygame` runtime required by the upstream web server
 - **No platforms:** clear `/saves/ports/rgsx/sources.json` and refresh via Settings in the UI
 - **1fichier failures:** verify `/saves/ports/rgsx/1fichierAPI.txt` contains a valid key or set `ONEFICHIER_API_KEY`
 - **Permission issues:** set `user: "1000:1000"` (or similar) in compose to match your NAS permissions
